@@ -208,6 +208,7 @@ func authWithToken(account *MCaccount, access_token_from_ms string) error {
 		return err
 	}
 
+
 	respBodyBytes, err = io.ReadAll(resp.Body)
 
 	if err != nil {
@@ -267,6 +268,12 @@ func authWithToken(account *MCaccount, access_token_from_ms string) error {
 	if err != nil {
 		return err
 	}
+
+    fmt.Println("\n=== Minecraft login_with_xbox response ===")
+    fmt.Println(string(mcBearerResponseBytes))
+    fmt.Println("Status code:", resp.StatusCode)
+    fmt.Println("==========================================")
+
 
 	var mcBearerResp msGetMojangBearerResponse
 

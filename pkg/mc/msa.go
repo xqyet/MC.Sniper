@@ -326,14 +326,20 @@ func (account *MCaccount) MicrosoftAuthenticate(proxy string) error {
 	}
 
 	mcBearerResponseBytes, err := io.ReadAll(resp.Body)
+    if err != nil {
+        return err
+    }
 
-	if err != nil {
-		return err
-	}
+    // Debug output: always print!
+    fmt.Println("\n=== Minecraft login_with_xbox response ===")
+    fmt.Println(string(mcBearerResponseBytes))
+    fmt.Println("Status code:", resp.StatusCode)
+    fmt.Println("==========================================")
 
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("login_with_xbox failed: %v", resp.Status)
-	}
+    if resp.StatusCode != 200 {
+        return fmt.Errorf("login_with_xbox failed: %v", resp.Status)
+    }
+
 
 	var mcBearerResp msGetMojangBearerResponse
 

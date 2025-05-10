@@ -13,6 +13,7 @@ func getAccounts(giftCodePath string, gamepassPath string, microsoftPath string)
 	gamepassLines, _ := parser.ReadLines(gamepassPath)
 	microsoftLines, _ := parser.ReadLines(microsoftPath)
 
+
 	gcs, parseErrors := parser.ParseAccounts(giftCodeLines, mc.MsPr)
 
 	for _, er := range parseErrors {

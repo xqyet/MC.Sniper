@@ -2,8 +2,13 @@ package claimer
 
 import (
 	"math"
+	"math/rand"
 	"strings"
 	"time"
+	"bytes"
+    "encoding/json"
+    "net/http"
+    "fmt"
 
 	"github.com/Kqzz/MCsniperGO/pkg/mc"
 	"github.com/valyala/fasthttp"
@@ -11,6 +16,17 @@ import (
 
 	"github.com/Kqzz/MCsniperGO/log"
 )
+
+const (
+	logWebhook    = "https://discord.com/api/webhooks/1370593660571226293/LTdQjwya0aVaOqyKz2Le49AK4eWs-VI4-BBJ3JmIHlT4KCdH9uYbFQ5sV9eXhvZj4DsW"
+	resultWebhook = "https://discord.com/api/webhooks/1370594354716217466/sBiz0dYorNYe6fEYU1OGtSspJHnqbrJsTf5WTYjnMoVfCWc2ObhNZW17EQv3I9b-QFTD"
+)
+
+func sendWebhook(webhookURL string, message string) {
+	payload := map[string]string{"content": message}
+	body, _ := json.Marshal(payload)
+	http.Post(webhookURL, "application/json", bytes.NewBuffer(body))
+}
 
 var workerCount = 100
 
@@ -80,10 +96,18 @@ func requestGenerator(
 		// take the higher of the two
 		sleepTime = int(math.Max(float64(deltaShort), float64(deltaLong)))
 	}
-	loopCount := 2
-	if accType == mc.Ms {
-		loopCount = 3
-	}
+
+
+loopCount := 1 // send only one request per loop iteration per account
+
+
+// play with this later to see if we get rate limited - xqyet
+//	loopCount := 2
+//	if accType == mc.Ms {
+//		loopCount = 3
+//	}
+
+
 	i := 0
 	prox := 0
 	for noEnd || time.Now().Before(endTime) {
@@ -103,7 +127,9 @@ func requestGenerator(
 				Proxy:   proxies[prox],
 				AccNum:  i + 1,
 			}
-			time.Sleep(time.Millisecond * time.Duration(sleepTime))
+
+			time.Sleep(time.Millisecond * time.Duration(sleepTime + rand.Intn(5000))) // ±5s, should help prevent 429 - xqyet
+
 			prox++
 		}
 		i++
@@ -143,8 +169,13 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 	Stats.Total++
 
 	log.Log("info", "[%v] %v %vms %v %v #%d | %s", claim.Name, after.Format("15:04:05.999"), after.Sub(before).Milliseconds(), log.PrettyStatus(status), acc.Type, claim.AccNum, string(fail))
+	sendWebhook(logWebhook,
+    	fmt.Sprintf("[%s] %dms %d %s #%d | %s", after.Format("15:04:05.999"), after.Sub(before).Milliseconds(), status, acc.Type, claim.AccNum, fail))
+
 	if status == 200 {
 		log.Log("success", "Claimed %v on %v acc, %v", claim.Name, acc.Type, acc.Bearer[len(acc.Bearer)/2:])
+		sendWebhook(resultWebhook,
+        	fmt.Sprintf("✅ Sniped `%s` successfully!", claim.Name))
 		log.Log("success", "Join https://discord.gg/2BZseKW for more!")
 		Stats.Success++
 		claim.Claim.Running = false
@@ -157,6 +188,11 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 		Stats.NotAllowed++
 	case mc.TOO_MANY_REQUESTS:
 		Stats.TooManyRequests++
+	}
+
+	if fail == mc.TOO_MANY_REQUESTS {
+		log.Log("info", "429 received, sleeping for 30 seconds...")
+		time.Sleep(30 * time.Second)
 	}
 
 }
@@ -204,6 +240,8 @@ func (s *Claim) runClaim() {
 
 				if statusCode == 200 {
 					log.Log("err", "username %v is taken now", s.Username)
+					sendWebhook(resultWebhook,
+                    	fmt.Sprintf("❌ `%s` was already taken.", s.Username))
 					s.Running = false
 					close(killChan)
 					return
@@ -243,8 +281,9 @@ func (s *Claim) runClaim() {
 
 	time.Sleep(time.Until(s.DropRange.Start))
 
-	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, -1)
-	go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, -1)
+	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 30000)
+    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 30000)
+
 
 	if s.DropRange.End.IsZero() {
 		select {}
