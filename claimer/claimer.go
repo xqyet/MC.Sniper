@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	logWebhook    = "https://discord.com/api/webhooks/1370593660571226293/LTdQjwya0aVaOqyKz2Le49AK4eWs-VI4-BBJ3JmIHlT4KCdH9uYbFQ5sV9eXhvZj4DsW"
-	resultWebhook = "https://discord.com/api/webhooks/1370594354716217466/sBiz0dYorNYe6fEYU1OGtSspJHnqbrJsTf5WTYjnMoVfCWc2ObhNZW17EQv3I9b-QFTD"
+	logWebhook    = ""
+	resultWebhook = ""
 )
 
 func sendWebhook(webhookURL string, message string) {
