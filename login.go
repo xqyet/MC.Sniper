@@ -11,7 +11,11 @@ import (
 // go run ./cmd/cli/*.go --username 9z9
 // go run cmd/cli/main.go cmd/cli/util.go --username 9z9
 // ^^^ for if OAuth is able to be used
-// go run ./cmd/cli - for manual bearer token only (temporary?)
+
+
+// go run ./cmd/cli
+// for manual bearer token only (temporary?)
+
 
 func main() {
 	// Create a Microsoft account type (used for bearer auth)

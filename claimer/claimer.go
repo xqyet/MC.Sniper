@@ -9,6 +9,7 @@ import (
     "encoding/json"
     "net/http"
     "fmt"
+    "sync/atomic"
 
 	"github.com/Kqzz/MCsniperGO/pkg/mc"
 	"github.com/valyala/fasthttp"
@@ -21,6 +22,8 @@ const (
 	logWebhook    = ""
 	resultWebhook = ""
 )
+
+var consecutive429s int32 = 0
 
 func sendWebhook(webhookURL string, message string) {
 	payload := map[string]string{"content": message}
@@ -170,16 +173,24 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 
 	log.Log("info", "[%v] %v %vms %v %v #%d | %s", claim.Name, after.Format("15:04:05.999"), after.Sub(before).Milliseconds(), log.PrettyStatus(status), acc.Type, claim.AccNum, string(fail))
 	sendWebhook(logWebhook,
-    	fmt.Sprintf("[%s] %dms %d %s #%d | %s", after.Format("15:04:05.999"), after.Sub(before).Milliseconds(), status, acc.Type, claim.AccNum, fail))
+    	fmt.Sprintf("Trying `%s` | [%s] %dms %d %s #%d | %s",
+    		claim.Name,
+    		after.Format("15:04:05.999"),
+    		after.Sub(before).Milliseconds(),
+    		status,
+    		acc.Type,
+    		claim.AccNum,
+    		fail))
+
 
 	if status == 200 {
-		log.Log("success", "Claimed %v on %v acc, %v", claim.Name, acc.Type, acc.Bearer[len(acc.Bearer)/2:])
-		sendWebhook(resultWebhook,
-        	fmt.Sprintf("✅ Sniped `%s` successfully!", claim.Name))
-		log.Log("success", "Join https://discord.gg/2BZseKW for more!")
-		Stats.Success++
-		claim.Claim.Running = false
-	}
+    	log.Log("success", "✅ %v claimed by account #%d (Bearer: %s)", claim.Name, claim.AccNum, claim.Bearer)
+    	sendWebhook(resultWebhook,
+    		fmt.Sprintf("✅ Sniped `%s` successfully!\nBearer #%d: `%s...`", claim.Name, claim.AccNum, claim.Bearer[:20]))
+    	log.Log("success", "Join https://discord.gg/2BZseKW for more!")
+    	Stats.Success++
+    	claim.Claim.Running = false
+    }
 
 	switch fail {
 	case mc.DUPLICATE:
@@ -190,10 +201,27 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 		Stats.TooManyRequests++
 	}
 
-	if fail == mc.TOO_MANY_REQUESTS {
-		log.Log("info", "429 received, sleeping for 30 seconds...")
-		time.Sleep(30 * time.Second)
-	}
+		if fail == mc.TOO_MANY_REQUESTS {
+            atomic.AddInt32(&consecutive429s, 1)
+            log.Log("info", "429 received on bearer #%d (%s), sleeping... (%d/5)",
+                claim.AccNum, claim.Bearer[:20], atomic.LoadInt32(&consecutive429s))
+            sendWebhook(logWebhook,
+                fmt.Sprintf("⚠️ 429 on bearer #%d (%s...) | %s",
+                    claim.AccNum, claim.Bearer[:20], claim.Name))
+
+            if atomic.LoadInt32(&consecutive429s) >= 5 {
+                log.Log("err", "Too many consecutive 429s, shutting down...")
+                sendWebhook(logWebhook, "⚠️ Stopping sniper: 5 consecutive 429 TOO_MANY_REQUESTS errors.")
+                claim.Claim.Running = false
+                return
+            }
+
+            time.Sleep(30 * time.Second)
+    	} else {
+    		// reset counter on any successful or other response
+    		atomic.StoreInt32(&consecutive429s, 0)
+    	}
+
 
 }
 
@@ -281,8 +309,8 @@ func (s *Claim) runClaim() {
 
 	time.Sleep(time.Until(s.DropRange.Start))
 
-	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 8000)
-    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 8000) // 10 second delay for now (if using no proxy)
+	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 5000)
+    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 5000) // 5 second delay for now (if using no proxy)
 
 
 	if s.DropRange.End.IsZero() {
