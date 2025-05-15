@@ -1,4 +1,6 @@
-![Zero Two](https://i.imgur.com/ClLeIeK.gif)
+<p align="center">
+  <img src="https://i.imgur.com/ClLeIeK.gif" alt="Zero Two" />
+</p>
 ## About
 
 This was a deprecated project forked and updated by [xqyet](https://github.com/xqyet). I added a number of stability, logging, and 
