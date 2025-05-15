@@ -14,15 +14,17 @@ performance improvements for my personal use.
   - delay scaling based on recent `429 Too Many Requests`.
   - delay customization per request cycle.
   - conditional added to avoid synchronized rate-limiting across accounts.
-  - 
+  
 ## How to Update
 The original MCsniperGO repo contains a deprecated OAuth client ID used for the Microsoft device login flow. 
-You can find it in the mc/account.go file in this line: 
+You can find it in the mc/msa.go file in this line: 
 `client_id := "00000000402b5328"`
 This is blacklisted by Microsoft, so if you want to automatically pull bearer tokens and track
 your own OAuth sessions, do the following: 
 
-### Register a New Microsoft Azure App
+### Register Microsoft Azure App
+(only if you REALLY want to automatically pull bearer tokens - 
+you will need finesse a verified app submission and will take a few days, but worth it if you do)
 
 1. Visit: [https://portal.azure.com](https://portal.azure.com)
 2. Navigate to **Azure Active Directory > App registrations**
@@ -33,7 +35,9 @@ your own OAuth sessions, do the following:
   - **Redirect URI** (optional):  
     `https://login.microsoftonline.com/common/oauth2/nativeclient`
 
-4. Click **Register** and copy your **Application (client) ID**
+
+4. Verify app with Microsoft (add MPN ID, partner submission, your small app submission)
+5. Click **Register** and copy your **Application (client) ID**
 
 ### Replace It in Code
 
