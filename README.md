@@ -1,17 +1,53 @@
-<h3 align="center">
-  <img src="https://i.imgur.com/ShMq72J.png" alt="MCsniperGO"></img>
+![Zero Two](https://i.imgur.com/ClLeIeK.gif)
+## About
 
-  
-  By Kqzz
-</h3>
+This was a deprecated project forked and updated by [xqyet](https://github.com/xqyet). I added a number of stability, logging, and 
+performance improvements for my personal use.
+- **Webhook Logging**
+  - log request attempts, success, failures, and rate-limit hits to Discord or Telegram.
+  - variable webhooks for debug logging and successful claim notifications - includes bearer tail display.
+  - includes status code, request time, bearer ID, and some additional error logging.
+- **Dynamic Backoff & Claim Requests**
+  - delay scaling based on recent `429 Too Many Requests`.
+  - delay customization per request cycle.
+  - conditional added to avoid synchronized rate-limiting across accounts.
+  - 
+## How to Update
+The original MCsniperGO repo contains a deprecated OAuth client ID used for the Microsoft device login flow. 
+You can find it in the mc/account.go file in this line: 
+`client_id := "00000000402b5328"`
+This is blacklisted by Microsoft, so if you want to automatically pull bearer tokens and track
+your own OAuth sessions, do the following: 
 
-<p align="center">
-    <a href="https://github.com/Kqzz/MCsniperGO/releases/"><img alt="downloads" src="https://img.shields.io/github/downloads/Kqzz/MCsniperGO/total?color=%233889c4" height="22"></a>
-    <a href="https://discord.gg/mcsnipergo-734794891258757160"><img alt="Discord" src="https://img.shields.io/discord/734794891258757160?label=discord&color=%233889c4&logo=discord&logoColor=white" height="22"></a>
-    <h3 align="center" > <a href="https://discord.gg/mcsnipergo-734794891258757160">Join Discord</a> </h3>
-</p>
+### Register a New Microsoft Azure App
 
-## Usage
+1. Visit: [https://portal.azure.com](https://portal.azure.com)
+2. Navigate to **Azure Active Directory > App registrations**
+3. Click **"New registration"** and fill out:
+  - **Name**: Anything (e.g., `MCsniperGO`)
+  - **Supported account types**:  
+  "Accounts in any organizational directory and personal Microsoft accounts"
+  - **Redirect URI** (optional):  
+    `https://login.microsoftonline.com/common/oauth2/nativeclient`
+
+4. Click **Register** and copy your **Application (client) ID**
+
+### Replace It in Code
+
+In `mc/account.go`, replace:
+
+```go
+client_id := "00000000402b5328"
+ ```
+with
+
+```go
+client_id := "your-new-client-id"
+ ```
+
+
+
+## How to Use
 
 - [Install go](https://go.dev/dl/)
 - Download or clone MCsniperGO repository 

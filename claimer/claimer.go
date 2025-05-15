@@ -131,7 +131,23 @@ loopCount := 1 // send only one request per loop iteration per account
 				AccNum:  i + 1,
 			}
 
-			time.Sleep(time.Millisecond * time.Duration(sleepTime + rand.Intn(5000))) // ±5s, should help prevent 429 - xqyet
+			// backoff scaling if recent 429
+            baseJitter := 250 // base jitter of ±250ms
+            consec429s := atomic.LoadInt32(&consecutive429s)
+            if consec429s > 0 {
+            	baseJitter += 200 * int(consec429s) // add 200ms per 429
+            }
+
+            // [-baseJitter, +baseJitter]
+            jitter := rand.Intn(baseJitter*2) - baseJitter
+
+            // jitter to sleepTime
+            actualDelay := sleepTime + jitter
+            if actualDelay < 0 {
+            	actualDelay = 0
+            }
+
+            time.Sleep(time.Millisecond * time.Duration(actualDelay))
 
 			prox++
 		}
@@ -145,6 +161,11 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 		Bearer: claim.Bearer,
 		Type:   claim.AccType,
 	}
+
+tail := claim.Bearer
+if len(tail) > 20 {
+	tail = tail[len(tail)-20:]
+}
 
 	status := 0
 	var err error = nil
@@ -184,13 +205,18 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 
 
 	if status == 200 {
-    	log.Log("success", "✅ %v claimed by account #%d (Bearer: %s)", claim.Name, claim.AccNum, claim.Bearer)
+
+    	log.Log("success", "✅ %v claimed by account #%d (Bearer: ...%s)", claim.Name, claim.AccNum, tail)
+
     	sendWebhook(resultWebhook,
-    		fmt.Sprintf("✅ Sniped `%s` successfully!\nBearer #%d: `%s...`", claim.Name, claim.AccNum, claim.Bearer[:20]))
+    		fmt.Sprintf("✅ Sniped `%s` successfully!\nBearer #%d: `...%s`", claim.Name, claim.AccNum, tail))
+
     	log.Log("success", "Join https://discord.gg/2BZseKW for more!")
+
     	Stats.Success++
     	claim.Claim.Running = false
     }
+
 
 	switch fail {
 	case mc.DUPLICATE:
@@ -203,11 +229,10 @@ func claimName(claim ClaimAttempt, client *fasthttp.Client) {
 
 		if fail == mc.TOO_MANY_REQUESTS {
             atomic.AddInt32(&consecutive429s, 1)
-            log.Log("info", "429 received on bearer #%d (%s), sleeping... (%d/5)",
-                claim.AccNum, claim.Bearer[:20], atomic.LoadInt32(&consecutive429s))
+            log.Log("info", "429 received on bearer #%d (...%s), sleeping... (%d/5)", claim.AccNum, tail, atomic.LoadInt32(&consecutive429s))
             sendWebhook(logWebhook,
-                fmt.Sprintf("⚠️ 429 on bearer #%d (%s...) | %s",
-                    claim.AccNum, claim.Bearer[:20], claim.Name))
+            	fmt.Sprintf("⚠️ 429 on bearer #%d (...%s) | %s",
+            		claim.AccNum, tail, claim.Name))
 
             if atomic.LoadInt32(&consecutive429s) >= 5 {
                 log.Log("err", "Too many consecutive 429s, shutting down...")
@@ -309,8 +334,8 @@ func (s *Claim) runClaim() {
 
 	time.Sleep(time.Until(s.DropRange.Start))
 
-	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 5000)
-    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 5000) // 5 second delay for now (if using no proxy)
+	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 60000) // for prename accounts
+    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 60000) // for mc accounts
 
 
 	if s.DropRange.End.IsZero() {
