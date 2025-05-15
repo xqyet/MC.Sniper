@@ -334,8 +334,8 @@ func (s *Claim) runClaim() {
 
 	time.Sleep(time.Until(s.DropRange.Start))
 
-	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 60000) // for prename accounts
-    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 60000) // for mc accounts
+	go requestGenerator(workChan, killChan, gcs, s.Username, mc.MsPr, s.DropRange.End, s.Proxies, 7000) // for prename accounts
+    go requestGenerator(workChan, killChan, mss, s.Username, mc.Ms, s.DropRange.End, s.Proxies, 7000) // for mc accounts
 
 
 	if s.DropRange.End.IsZero() {
